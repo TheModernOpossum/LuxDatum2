@@ -1,14 +1,15 @@
-"use client"; // Forces the file to run on the client side
+"use client"; // Forces this to be a client-only component
 
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 
-// Dynamically import Leaflet-related components (ensures they load only in the browser)
+// Leaflet components must load on client-side only
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const L = typeof window !== "undefined" ? require("leaflet") : null; // Prevents SSR issues
+
+const L = typeof window !== "undefined" ? require("leaflet") : null; // Ensures this only loads on client-side
 
 const Home = () => {
   const [lat, setLat] = useState(37.7749);
@@ -18,8 +19,7 @@ const Home = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only run client-side
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return; // Prevent SSR execution
   }, []);
 
   const fetchImage = async () => {
