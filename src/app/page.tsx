@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import axios from "axios";
 import Image from "next/image";
@@ -13,8 +13,9 @@ const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLaye
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 
 const markerIcon = new L.Icon({
-  iconUrl: "/marker-icon.png",
-  shadowUrl: "/marker-shadow.png",
+  iconUrl: "/leaflet/marker-icon.png",
+  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
+  shadowUrl: "/leaflet/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -25,9 +26,13 @@ export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [latitude, setLatitude] = useState<string>("37.7749"); // Default SF
+  const [latitude, setLatitude] = useState<string>("37.7749");
   const [longitude, setLongitude] = useState<string>("-122.4194");
   const [date, setDate] = useState<string>("2025-01-15");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return; // ✅ Prevents SSR from using window
+  }, []);
 
   const fetchImage = async () => {
     setLoading(true);
