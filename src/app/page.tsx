@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import axios from "axios";
+import Image from "next/image";
+
+// Dynamically import Leaflet-related components (to prevent SSR issues)
+const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Dynamically import Leaflet components to avoid SSR issues
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
-
-// Fix missing marker icons in Next.js + Leaflet
+// Fix for Leaflet marker icons not loading
 const markerIcon = new L.Icon({
   iconUrl: "leaflet/marker-icon.png",
   shadowUrl: "leaflet/marker-shadow.png",
@@ -29,9 +30,9 @@ export default function Home() {
   const [latitude, setLatitude] = useState("37.7749"); // Default: SF
   const [longitude, setLongitude] = useState("-122.4194"); // Default: SF
   const [date, setDate] = useState("2025-01-15"); // Default: Recent Date
-  const [isClient, setIsClient] = useState(false); // ✅ Fix for window error
+  const [isClient, setIsClient] = useState(false); // Ensure code runs only on client
 
-  // ✅ Ensure window-related code runs only on client side
+  // Ensure this runs only in the browser
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -59,9 +60,14 @@ export default function Home() {
       const imageBlob = response.data;
       const imageObjectURL = URL.createObjectURL(imageBlob);
       setImageSrc(imageObjectURL);
-    } catch (err) {
-      console.error("Error fetching NASA data:", err);
-      setError("Failed to fetch satellite image.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error fetching NASA data:", err.message);
+        setError(`Failed to fetch satellite image: ${err.message}`);
+      } else {
+        console.error("Unknown error fetching NASA data.");
+        setError("An unknown error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,20 +121,24 @@ export default function Home() {
                     alt="NASA Satellite View"
                     width={800}
                     height={400}
-                    unoptimized={true} // ✅ Fixes Next.js warning
+                    unoptimized={true}
                     className="w-full max-w-3xl rounded-lg shadow-lg"
                 />
             )
         )}
 
-        {/* ✅ Only render map when client-side */}
+        {/* Map Display (Rendered only on client side) */}
         {isClient && (
-            <div className="w-full max-w-3xl h-96 mt-6">
-              <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={10} className="w-full h-full">
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
-              </MapContainer>
-            </div>
+            <MapContainer
+                center={[parseFloat(latitude), parseFloat(longitude)]}
+                zoom={10}
+                className="h-96 w-full max-w-3xl rounded-lg shadow-lg mt-6"
+            >
+              <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
+            </MapContainer>
         )}
       </div>
   );
