@@ -6,7 +6,7 @@ import Image from "next/image";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Dynamically import Leaflet components (to avoid SSR issues)
+// Dynamically import Leaflet components to prevent SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
@@ -24,10 +24,16 @@ export default function Home() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isClient, setIsClient] = useState(false); // Ensures window usage only on the client
+
+    // Ensure this runs only on the client to avoid "window is not defined" errors
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Function to fetch satellite image
     const fetchImage = async () => {
-        if (typeof window === "undefined") return; // Fix for SSR
+        if (!isClient) return; // Prevents running in SSR
         setLoading(true);
         setError(null);
 
@@ -44,13 +50,6 @@ export default function Home() {
             setLoading(false);
         }
     };
-
-    // Fetch image only on client-side
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            fetchImage();
-        }
-    }, [fetchImage]);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
@@ -83,12 +82,14 @@ export default function Home() {
                 <Image src={imageUrl} alt="Satellite View" width={500} height={500} priority />
             )}
 
-            <div className="w-full h-[500px] mt-6">
-                <MapContainer center={[latitude, longitude]} zoom={13} className="w-full h-full">
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <Marker position={[latitude, longitude]} icon={markerIcon} />
-                </MapContainer>
-            </div>
+            {isClient && ( // Prevents SSR from rendering Leaflet before `window` is available
+                <div className="w-full h-[500px] mt-6">
+                    <MapContainer center={[latitude, longitude]} zoom={13} className="w-full h-full">
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Marker position={[latitude, longitude]} icon={markerIcon} />
+                    </MapContainer>
+                </div>
+            )}
         </div>
     );
 }
