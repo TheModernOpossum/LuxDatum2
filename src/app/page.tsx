@@ -1,34 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import axios from "axios";
+import Image from "next/image";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Dynamically import react-leaflet components (disable SSR for them)
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
-
-// Leaflet marker icon fix
+// **Fix missing Leaflet marker icons**
 const markerIcon = new L.Icon({
-  iconUrl: "leaflet/marker-icon.png",
-  shadowUrl: "leaflet/marker-shadow.png",
+  iconUrl: "/leaflet/marker-icon.png",
+  shadowUrl: "/leaflet/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
 
+// **Dynamically import Leaflet components for SSR fix**
+const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+
 export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [latitude, setLatitude] = useState("37.7749"); // Default: San Francisco
-  const [longitude, setLongitude] = useState("-122.4194"); // Default: San Francisco
-  const [date, setDate] = useState("2025-01-15"); // Default date
+  const [latitude, setLatitude] = useState("37.7749"); // Default: SF
+  const [longitude, setLongitude] = useState("-122.4194"); // Default: SF
+  const [date, setDate] = useState("2025-01-15"); // Default: Recent Date
 
   const fetchImage = async () => {
     setLoading(true);
@@ -53,9 +53,14 @@ export default function Home() {
       const imageBlob = response.data;
       const imageObjectURL = URL.createObjectURL(imageBlob);
       setImageSrc(imageObjectURL);
-    } catch (err) {
-      console.error("Error fetching NASA data:", err);
-      setError("Failed to fetch satellite image.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error fetching NASA data:", err.message);
+        setError(`Failed to fetch satellite image: ${err.message}`);
+      } else {
+        console.error("Unknown error fetching NASA data.");
+        setError("An unknown error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -65,7 +70,7 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
         <h1 className="text-3xl font-bold mb-4">LuxDatum Earth Imagery</h1>
 
-        {/* Input Controls */}
+        {/* Inputs for Coordinates and Date */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex gap-4">
             <input
@@ -109,16 +114,19 @@ export default function Home() {
                     alt="NASA Satellite View"
                     width={800}
                     height={400}
-                    unoptimized
+                    unoptimized={true}
                     className="w-full max-w-3xl rounded-lg shadow-lg"
                 />
             )
         )}
 
-        {/* Map */}
+        {/* Map Display */}
         <div className="w-full max-w-3xl h-96 mt-6">
-          <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={10} className="h-full w-full">
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={13} className="h-full w-full">
+            <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
             <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
           </MapContainer>
         </div>
