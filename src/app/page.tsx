@@ -2,20 +2,20 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// ✅ Dynamically load Leaflet components to prevent SSR issues
-const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
+// Dynamically import Leaflet components to avoid SSR issues
+const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
 
-// ✅ Fix for missing Leaflet marker icons
+// Fix missing marker icons in Next.js + Leaflet
 const markerIcon = new L.Icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
+  iconUrl: "leaflet/marker-icon.png",
+  shadowUrl: "leaflet/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -23,21 +23,19 @@ const markerIcon = new L.Icon({
 });
 
 export default function Home() {
-  const [latitude, setLatitude] = useState<string>("37.7749"); // Default: SF
-  const [longitude, setLongitude] = useState<string>("-122.4194"); // Default: SF
-  const [date, setDate] = useState<string>("2025-01-15"); // Default: Recent Date
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [latitude, setLatitude] = useState("37.7749"); // Default: SF
+  const [longitude, setLongitude] = useState("-122.4194"); // Default: SF
+  const [date, setDate] = useState("2025-01-15"); // Default: Recent Date
+  const [isClient, setIsClient] = useState(false); // ✅ Fix for window error
 
+  // ✅ Ensure window-related code runs only on client side
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setMapLoaded(true);
-    }
+    setIsClient(true);
   }, []);
 
-  // ✅ Fetch NASA Satellite Image
   const fetchImage = async () => {
     setLoading(true);
     setError(null);
@@ -61,24 +59,19 @@ export default function Home() {
       const imageBlob = response.data;
       const imageObjectURL = URL.createObjectURL(imageBlob);
       setImageSrc(imageObjectURL);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error fetching NASA data:", err.message);
-        setError(`Failed to fetch satellite image: ${err.message}`);
-      } else {
-        console.error("Unknown error fetching NASA data.");
-        setError("An unknown error occurred.");
-      }
+    } catch (err) {
+      console.error("Error fetching NASA data:", err);
+      setError("Failed to fetch satellite image.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
         <h1 className="text-3xl font-bold mb-4">LuxDatum Earth Imagery</h1>
 
-        {/* 🌍 Input Fields */}
+        {/* Inputs for Coordinates and Date */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex gap-4">
             <input
@@ -110,36 +103,30 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 🌍 Satellite Image Display */}
+        {/* Image Display */}
         {loading ? (
             <p>Loading satellite image...</p>
         ) : error ? (
             <p className="text-red-500">{error}</p>
         ) : (
             imageSrc && (
-                <img
+                <Image
                     src={imageSrc}
                     alt="NASA Satellite View"
+                    width={800}
+                    height={400}
+                    unoptimized={true} // ✅ Fixes Next.js warning
                     className="w-full max-w-3xl rounded-lg shadow-lg"
                 />
             )
         )}
 
-        {/* 🗺️ Interactive Map */}
-        {mapLoaded && (
+        {/* ✅ Only render map when client-side */}
+        {isClient && (
             <div className="w-full max-w-3xl h-96 mt-6">
-              <MapContainer
-                  center={[parseFloat(latitude), parseFloat(longitude)]}
-                  zoom={10}
-                  className="h-full w-full rounded-lg shadow-lg"
-              >
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution="&copy; OpenStreetMap contributors"
-                />
-                <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon}>
-                  <Popup>Selected Location</Popup>
-                </Marker>
+              <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={10} className="w-full h-full">
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
               </MapContainer>
             </div>
         )}
