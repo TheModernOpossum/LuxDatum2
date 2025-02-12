@@ -6,14 +6,15 @@ import Image from "next/image";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Dynamically import Leaflet components to prevent SSR issues
+// Dynamically import Leaflet to prevent SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 
+// Define Leaflet marker icon
 const markerIcon = new L.Icon({
-    iconUrl: "leaflet/marker-icon.png",
-    shadowUrl: "leaflet/marker-shadow.png",
+    iconUrl: "/leaflet/marker-icon.png",
+    shadowUrl: "/leaflet/marker-shadow.png",
     iconSize: [25, 41],
     iconAnchor: [12, 41]
 });
@@ -24,16 +25,16 @@ export default function Home() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isClient, setIsClient] = useState(false); // Ensures window usage only on the client
+    const [isClient, setIsClient] = useState(false);
 
-    // Ensure this runs only on the client to avoid "window is not defined" errors
+    // Ensure this runs only on the client to prevent "window is not defined" error
     useEffect(() => {
         setIsClient(true);
     }, []);
 
     // Function to fetch satellite image
     const fetchImage = async () => {
-        if (!isClient) return; // Prevents running in SSR
+        if (!isClient) return;
         setLoading(true);
         setError(null);
 
@@ -54,7 +55,8 @@ export default function Home() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
             <h1 className="text-2xl font-bold mb-4">LuxDatum - Satellite Map Viewer</h1>
-            
+
+            {/* Input Fields */}
             <div className="flex space-x-4 mb-4">
                 <input
                     type="number"
@@ -75,6 +77,7 @@ export default function Home() {
                 </button>
             </div>
 
+            {/* Image Display */}
             {loading && <p>Loading satellite image...</p>}
             {error && <p className="text-red-500">{error}</p>}
 
@@ -82,7 +85,8 @@ export default function Home() {
                 <Image src={imageUrl} alt="Satellite View" width={500} height={500} priority />
             )}
 
-            {isClient && ( // Prevents SSR from rendering Leaflet before `window` is available
+            {/* Map Rendering Only on Client */}
+            {isClient && (
                 <div className="w-full h-[500px] mt-6">
                     <MapContainer center={[latitude, longitude]} zoom={13} className="w-full h-full">
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -92,4 +96,9 @@ export default function Home() {
             )}
         </div>
     );
+}
+
+// Prevents Static Site Generation (SSG) and forces dynamic rendering
+export async function getServerSideProps() {
+    return { props: {} };
 }
