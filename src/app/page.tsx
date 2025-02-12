@@ -1,23 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import axios from "axios";
 import Image from "next/image";
+
+// Import styles
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// **Fix missing Leaflet marker icons**
-const markerIcon = new L.Icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// **Dynamically import Leaflet components for SSR fix**
+// Ensure Leaflet runs only in the browser
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
@@ -26,9 +18,19 @@ export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [latitude, setLatitude] = useState("37.7749"); // Default: SF
-  const [longitude, setLongitude] = useState("-122.4194"); // Default: SF
-  const [date, setDate] = useState("2025-01-15"); // Default: Recent Date
+  const [latitude, setLatitude] = useState("37.7749");
+  const [longitude, setLongitude] = useState("-122.4194");
+  const [date, setDate] = useState("2025-01-15");
+
+  // Ensure Leaflet markers load correctly
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      L.Icon.Default.mergeOptions({
+        iconUrl: "/leaflet/marker-icon.png",
+        shadowUrl: "/leaflet/marker-shadow.png",
+      });
+    }
+  }, []);
 
   const fetchImage = async () => {
     setLoading(true);
@@ -40,13 +42,7 @@ export default function Home() {
       if (!API_KEY) throw new Error("Missing NASA API Key");
 
       const response = await axios.get("https://api.nasa.gov/planetary/earth/imagery", {
-        params: {
-          lat: latitude,
-          lon: longitude,
-          dim: 0.1,
-          date: date,
-          api_key: API_KEY,
-        },
+        params: { lat: latitude, lon: longitude, dim: 0.1, date, api_key: API_KEY },
         responseType: "blob",
       });
 
@@ -127,7 +123,7 @@ export default function Home() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
+            <Marker position={[parseFloat(latitude), parseFloat(longitude)]} />
           </MapContainer>
         </div>
       </div>
