@@ -35,6 +35,8 @@ export default function Home() {
       const imageBlob = response.data;
       setImageSrc(URL.createObjectURL(imageBlob));
     } catch (err) {
+      console.error("NASA API Fetch Error:", err);
+    }
       setError("Failed to fetch satellite image.");
     } finally {
       setLoading(false);
