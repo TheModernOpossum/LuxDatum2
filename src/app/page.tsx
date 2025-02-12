@@ -1,104 +1,89 @@
-"use client";
+"use client"; // Forces the file to run on the client side
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
 
-// Dynamically import Leaflet to prevent SSR issues
+// Dynamically import Leaflet-related components (ensures they load only in the browser)
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+const L = typeof window !== "undefined" ? require("leaflet") : null; // Prevents SSR issues
 
-// Define Leaflet marker icon
-const markerIcon = new L.Icon({
-    iconUrl: "/leaflet/marker-icon.png",
-    shadowUrl: "/leaflet/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
+const Home = () => {
+  const [lat, setLat] = useState(37.7749);
+  const [lng, setLng] = useState(-122.4194);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-export default function Home() {
-    const [latitude, setLatitude] = useState(37.7749); // Default: SF
-    const [longitude, setLongitude] = useState(-122.4194);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    // Only run client-side
+    if (typeof window === "undefined") return;
+  }, []);
 
-    // Ensure this runs only on the client to prevent "window is not defined" error
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
+  const fetchImage = async () => {
+    setLoading(true);
+    setError(null);
 
-    // Function to fetch satellite image
-    const fetchImage = async () => {
-        if (!isClient) return;
-        setLoading(true);
-        setError(null);
+    try {
+      const response = await fetch(`/api/satellite?lat=${lat}&lng=${lng}`);
+      if (!response.ok) throw new Error("Failed to fetch image");
 
-        try {
-            const response = await fetch(`/api/getImage?lat=${latitude}&lon=${longitude}`);
-            if (!response.ok) throw new Error("Failed to fetch image");
+      const data = await response.json();
+      setImageUrl(data.imageUrl);
+    } catch (err) {
+      console.error("Error fetching image:", err);
+      setError("Could not fetch satellite image.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            const data = await response.json();
-            setImageUrl(data.imageUrl);
-        } catch (err) {
-            console.error("NASA API Fetch Error:", err);
-            setError("Failed to fetch satellite image.");
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+      <h1 className="text-3xl font-bold mb-4">Satellite Image Viewer</h1>
+      
+      <div className="flex gap-2 mb-4">
+        <input
+          type="number"
+          value={lat}
+          onChange={(e) => setLat(parseFloat(e.target.value))}
+          className="p-2 bg-gray-800 border border-gray-600 rounded"
+          placeholder="Latitude"
+        />
+        <input
+          type="number"
+          value={lng}
+          onChange={(e) => setLng(parseFloat(e.target.value))}
+          className="p-2 bg-gray-800 border border-gray-600 rounded"
+          placeholder="Longitude"
+        />
+        <button
+          onClick={fetchImage}
+          className="p-2 bg-blue-600 rounded text-white hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Fetch Image"}
+        </button>
+      </div>
 
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-            <h1 className="text-2xl font-bold mb-4">LuxDatum - Satellite Map Viewer</h1>
+      {error && <p className="text-red-500">{error}</p>}
 
-            {/* Input Fields */}
-            <div className="flex space-x-4 mb-4">
-                <input
-                    type="number"
-                    value={latitude}
-                    onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                    placeholder="Latitude"
-                    className="p-2 border rounded text-black"
-                />
-                <input
-                    type="number"
-                    value={longitude}
-                    onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                    placeholder="Longitude"
-                    className="p-2 border rounded text-black"
-                />
-                <button onClick={fetchImage} className="p-2 bg-blue-600 rounded">
-                    Fetch Image
-                </button>
-            </div>
+      {imageUrl && (
+        <img src={imageUrl} alt="Satellite view" className="mt-4 w-96 h-96 border border-gray-600" />
+      )}
 
-            {/* Image Display */}
-            {loading && <p>Loading satellite image...</p>}
-            {error && <p className="text-red-500">{error}</p>}
+      <div className="w-full h-96 mt-8">
+        {typeof window !== "undefined" && (
+          <MapContainer center={[lat, lng]} zoom={10} className="h-full w-full">
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[lat, lng]} icon={L?.icon({ iconUrl: "leaflet/marker-icon.png", shadowUrl: "leaflet/marker-shadow.png" })} />
+          </MapContainer>
+        )}
+      </div>
+    </div>
+  );
+};
 
-            {imageUrl && (
-                <Image src={imageUrl} alt="Satellite View" width={500} height={500} priority />
-            )}
-
-            {/* Map Rendering Only on Client */}
-            {isClient && (
-                <div className="w-full h-[500px] mt-6">
-                    <MapContainer center={[latitude, longitude]} zoom={13} className="w-full h-full">
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        <Marker position={[latitude, longitude]} icon={markerIcon} />
-                    </MapContainer>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// Prevents Static Site Generation (SSG) and forces dynamic rendering
-export async function getServerSideProps() {
-    return { props: {} };
-}
+export default Home;
