@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import axios from "axios";
 import Image from "next/image";
+import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Load React-Leaflet components dynamically to avoid SSR issues
+// Dynamically import react-leaflet components (disable SSR for them)
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
 
-// Fix for missing Leaflet marker icons in Next.js
+// Leaflet marker icon fix
 const markerIcon = new L.Icon({
   iconUrl: "leaflet/marker-icon.png",
   shadowUrl: "leaflet/marker-shadow.png",
@@ -26,15 +26,9 @@ export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [latitude, setLatitude] = useState("37.7749"); // Default: SF
-  const [longitude, setLongitude] = useState("-122.4194"); // Default: SF
-  const [date, setDate] = useState("2025-01-15"); // Default: Recent Date
-  const [isClient, setIsClient] = useState(false);
-
-  // Prevent "window is not defined" error in Next.js SSR
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const [latitude, setLatitude] = useState("37.7749"); // Default: San Francisco
+  const [longitude, setLongitude] = useState("-122.4194"); // Default: San Francisco
+  const [date, setDate] = useState("2025-01-15"); // Default date
 
   const fetchImage = async () => {
     setLoading(true);
@@ -59,8 +53,8 @@ export default function Home() {
       const imageBlob = response.data;
       const imageObjectURL = URL.createObjectURL(imageBlob);
       setImageSrc(imageObjectURL);
-    } catch (err: any) {
-      console.error("Error fetching NASA data:", err.message);
+    } catch (err) {
+      console.error("Error fetching NASA data:", err);
       setError("Failed to fetch satellite image.");
     } finally {
       setLoading(false);
@@ -71,7 +65,7 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
         <h1 className="text-3xl font-bold mb-4">LuxDatum Earth Imagery</h1>
 
-        {/* Inputs for Coordinates and Date */}
+        {/* Input Controls */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex gap-4">
             <input
@@ -103,15 +97,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Map Display (Only Rendered in Client) */}
-        {isClient && (
-            <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={10} className="h-80 w-full max-w-3xl rounded-lg shadow-lg">
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
-            </MapContainer>
-        )}
-
-        {/* Satellite Image Display */}
+        {/* Image Display */}
         {loading ? (
             <p>Loading satellite image...</p>
         ) : error ? (
@@ -123,11 +109,19 @@ export default function Home() {
                     alt="NASA Satellite View"
                     width={800}
                     height={400}
-                    unoptimized={true} // Prevent Next.js optimization issues with blob images
+                    unoptimized
                     className="w-full max-w-3xl rounded-lg shadow-lg"
                 />
             )
         )}
+
+        {/* Map */}
+        <div className="w-full max-w-3xl h-96 mt-6">
+          <MapContainer center={[parseFloat(latitude), parseFloat(longitude)]} zoom={10} className="h-full w-full">
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[parseFloat(latitude), parseFloat(longitude)]} icon={markerIcon} />
+          </MapContainer>
+        </div>
       </div>
   );
 }
