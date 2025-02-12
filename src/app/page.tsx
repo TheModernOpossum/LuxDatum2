@@ -4,33 +4,39 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 
-// Dynamically import Leaflet components to avoid SSR issues
+// Dynamically import Leaflet components (NO SSR!)
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 
 export default function Page() {
-  const [lat, setLat] = useState(37.7749);
-  const [lng, setLng] = useState(-122.4194);
+  const [lat, setLat] = useState<number>(37.7749);
+  const [lng, setLng] = useState<number>(-122.4194);
   const [nasaImage, setNasaImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isClient, setIsClient] = useState<boolean>(false);
 
-  // Ensure client-side rendering
+  // Ensure this runs only in the browser
   useEffect(() => {
-    setIsClient(true);
+    if (typeof window !== "undefined") {
+      setIsClient(true);
+    }
   }, []);
 
-  // Function to fetch satellite image
-  const fetchImage = async () => {
+  // Function to fetch NASA image
+  const fetchImage = async (): Promise<void> => {
+    if (!isClient) return;
+    
     setLoading(true);
     setError(null);
+
     try {
       const apiKey = process.env.NEXT_PUBLIC_NASA_API_KEY;
       const response = await fetch(
         `https://api.nasa.gov/planetary/earth/imagery?lon=${lng}&lat=${lat}&dim=0.1&api_key=${apiKey}`
       );
+
       if (!response.ok) throw new Error("Failed to fetch image");
       const imageUrl = response.url;
       setNasaImage(imageUrl);
