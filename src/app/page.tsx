@@ -1,40 +1,41 @@
-"use client"; // Forces this to be a client-only component
+"use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import "leaflet/dist/leaflet.css";
+import Image from "next/image";
 
-// Leaflet components must load on client-side only
+// Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 
-const L = typeof window !== "undefined" ? require("leaflet") : null; // Ensures this only loads on client-side
-
-const Home = () => {
+export default function Page() {
   const [lat, setLat] = useState(37.7749);
   const [lng, setLng] = useState(-122.4194);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [nasaImage, setNasaImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
+  // Ensure client-side rendering
   useEffect(() => {
-    if (typeof window === "undefined") return; // Prevent SSR execution
+    setIsClient(true);
   }, []);
 
+  // Function to fetch satellite image
   const fetchImage = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(`/api/satellite?lat=${lat}&lng=${lng}`);
+      const apiKey = process.env.NEXT_PUBLIC_NASA_API_KEY;
+      const response = await fetch(
+        `https://api.nasa.gov/planetary/earth/imagery?lon=${lng}&lat=${lat}&dim=0.1&api_key=${apiKey}`
+      );
       if (!response.ok) throw new Error("Failed to fetch image");
-
-      const data = await response.json();
-      setImageUrl(data.imageUrl);
+      const imageUrl = response.url;
+      setNasaImage(imageUrl);
     } catch (err) {
-      console.error("Error fetching image:", err);
-      setError("Could not fetch satellite image.");
+      setError("Failed to fetch satellite image.");
     } finally {
       setLoading(false);
     }
@@ -42,48 +43,54 @@ const Home = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-      <h1 className="text-3xl font-bold mb-4">Satellite Image Viewer</h1>
-      
-      <div className="flex gap-2 mb-4">
+      <h1 className="text-3xl font-bold mb-4">NASA Satellite Image Viewer</h1>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium">Latitude</label>
         <input
           type="number"
           value={lat}
           onChange={(e) => setLat(parseFloat(e.target.value))}
-          className="p-2 bg-gray-800 border border-gray-600 rounded"
-          placeholder="Latitude"
+          className="text-black px-2 py-1 rounded"
         />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium">Longitude</label>
         <input
           type="number"
           value={lng}
           onChange={(e) => setLng(parseFloat(e.target.value))}
-          className="p-2 bg-gray-800 border border-gray-600 rounded"
-          placeholder="Longitude"
+          className="text-black px-2 py-1 rounded"
         />
-        <button
-          onClick={fetchImage}
-          className="p-2 bg-blue-600 rounded text-white hover:bg-blue-700"
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Fetch Image"}
-        </button>
       </div>
 
-      {error && <p className="text-red-500">{error}</p>}
+      <button
+        onClick={fetchImage}
+        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+        disabled={loading}
+      >
+        {loading ? "Loading..." : "Fetch Image"}
+      </button>
 
-      {imageUrl && (
-        <img src={imageUrl} alt="Satellite view" className="mt-4 w-96 h-96 border border-gray-600" />
+      {error && <p className="text-red-500 mt-2">{error}</p>}
+
+      {nasaImage && (
+        <div className="mt-4">
+          <h2 className="text-lg font-semibold">Satellite Image:</h2>
+          <Image src={nasaImage} alt="NASA Satellite" width={500} height={500} />
+        </div>
       )}
 
-      <div className="w-full h-96 mt-8">
-        {typeof window !== "undefined" && (
-          <MapContainer center={[lat, lng]} zoom={10} className="h-full w-full">
+      {/* Conditionally render map only on client */}
+      {isClient && (
+        <div className="mt-4 w-full max-w-lg h-64">
+          <MapContainer center={[lat, lng]} zoom={5} className="w-full h-full">
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[lat, lng]} icon={L?.icon({ iconUrl: "leaflet/marker-icon.png", shadowUrl: "leaflet/marker-shadow.png" })} />
+            <Marker position={[lat, lng]} />
           </MapContainer>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default Home;
+}
